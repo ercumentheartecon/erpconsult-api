@@ -17,6 +17,16 @@ export class UsersService {
         isOnline: true,
         isVerified: true,
         createdAt: true,
+        consultant: {
+          select: {
+            id: true,
+            isAvailable: true,
+            currentRoom: true,
+            averageRating: true,
+            totalSessions: true,
+            totalHours: true,
+          },
+        },
       },
     });
     if (!user) {
