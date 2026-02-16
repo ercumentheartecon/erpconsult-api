@@ -1,9 +1,5 @@
 import { Server, Socket } from "socket.io";
 import { prisma } from "../../config/database";
-import { ZoomService } from "../../modules/zoom/zoom.service";
-import { env } from "../../config/env";
-
-const zoomService = new ZoomService();
 
 export function registerSessionHandlers(io: Server, socket: Socket) {
   socket.on("session:accept", async (data: { sessionId: string }) => {
@@ -36,47 +32,21 @@ export function registerSessionHandlers(io: Server, socket: Socket) {
         },
       });
 
-      // Create Zoom meeting automatically when session is accepted
-      let zoomMeeting: { meetingId: string; joinUrl: string; password: string } | null = null;
-      if (env.ZOOM_ACCOUNT_ID && env.ZOOM_CLIENT_ID && env.ZOOM_CLIENT_SECRET) {
-        try {
-          const clientName = `${updated.client?.firstName || ""} ${updated.client?.lastName || ""}`.trim();
-          const topic = `${updated.room?.name || "ERPConsult"} - ${clientName} - ${updated.sessionNumber}`;
-          zoomMeeting = await zoomService.createMeeting(topic);
-
-          await prisma.session.update({
-            where: { id: data.sessionId },
-            data: {
-              zoomMeetingId: zoomMeeting.meetingId,
-              zoomMeetingUrl: zoomMeeting.joinUrl,
-              zoomMeetingPassword: zoomMeeting.password,
-              videoEnabled: true,
-            },
-          });
-
-          console.log(`Zoom meeting created for session ${updated.sessionNumber}: ${zoomMeeting.joinUrl}`);
-        } catch (zoomErr) {
-          console.error("Failed to create Zoom meeting (session will continue without video):", zoomErr);
-        }
-      }
-
       // Both parties join the session room
       socket.join(`session:${data.sessionId}`);
       io.to(`user:${updated.clientId}`).socketsJoin(`session:${data.sessionId}`);
 
-      // Notify session participants (include zoom info)
+      // Notify session participants
       io.to(`session:${data.sessionId}`).emit("session:status-changed", {
         sessionId: updated.id,
         status: "ACTIVE",
         session: updated,
-        zoomMeeting: zoomMeeting || null,
       });
 
       // Notify client specifically
       io.to(`user:${updated.clientId}`).emit("session:accepted", {
         sessionId: updated.id,
         consultant: updated.consultant,
-        zoomMeeting: zoomMeeting || null,
       });
 
       // Remove from room queue
@@ -106,7 +76,10 @@ export function registerSessionHandlers(io: Server, socket: Socket) {
       if (notification) {
         io.to(`user:${updated.clientId}`).emit("notification:new", notification);
       }
+
+      console.log(`[session:accept] Session ${updated.sessionNumber} accepted by consultant ${consultant.id}`);
     } catch (err) {
+      console.error("[session:accept] Error:", err);
       socket.emit("error", { message: "Failed to accept session" });
     }
   });

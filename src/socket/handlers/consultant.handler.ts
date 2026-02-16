@@ -9,14 +9,12 @@ export function registerConsultantHandlers(io: Server, socket: Socket) {
   socket.on("consultant:join-room", async (data: { roomCode: string }) => {
     try {
       const userId = socket.data.userId;
-      console.log(`[consultant:join-room] userId=${userId} roomCode=${data.roomCode}`);
 
       // Cancel any pending offline timer (reconnect scenario)
       const existingTimer = offlineTimers.get(userId);
       if (existingTimer) {
         clearTimeout(existingTimer);
         offlineTimers.delete(userId);
-        console.log(`[consultant:join-room] Cancelled offline timer for userId=${userId}`);
       }
 
       const consultant = await prisma.consultant.findUnique({
@@ -27,30 +25,39 @@ export function registerConsultantHandlers(io: Server, socket: Socket) {
         return;
       }
 
-      // Leave previous room if any
-      if (consultant.currentRoom) {
+      // If already in the same room and available, just ensure socket is joined (no broadcast)
+      const alreadyInRoom = consultant.isAvailable && consultant.currentRoom === data.roomCode;
+
+      // Leave previous room if switching rooms
+      if (consultant.currentRoom && consultant.currentRoom !== data.roomCode) {
         socket.leave(`room:${consultant.currentRoom}`);
       }
 
-      await prisma.consultant.update({
-        where: { id: consultant.id },
-        data: { isAvailable: true, currentRoom: data.roomCode },
-      });
-      await prisma.user.update({
-        where: { id: userId },
-        data: { isOnline: true, lastSeen: new Date() },
-      });
+      // Update DB only if state actually changed
+      if (!alreadyInRoom) {
+        await prisma.consultant.update({
+          where: { id: consultant.id },
+          data: { isAvailable: true, currentRoom: data.roomCode },
+        });
+        await prisma.user.update({
+          where: { id: userId },
+          data: { isOnline: true, lastSeen: new Date() },
+        });
+      }
 
+      // Always ensure socket is in the room
       socket.join(`room:${data.roomCode}`);
 
-      console.log(`[consultant:join-room] Consultant ${consultant.id} now online in room ${data.roomCode}`);
-
-      io.emit("consultant:status-changed", {
-        consultantId: consultant.id,
-        userId,
-        isAvailable: true,
-        currentRoom: data.roomCode,
-      });
+      // Only broadcast if state actually changed (prevents infinite loops)
+      if (!alreadyInRoom) {
+        console.log(`[consultant:join-room] Consultant ${consultant.id} now online in room ${data.roomCode}`);
+        io.emit("consultant:status-changed", {
+          consultantId: consultant.id,
+          userId,
+          isAvailable: true,
+          currentRoom: data.roomCode,
+        });
+      }
     } catch (err) {
       console.error("[consultant:join-room] Error:", err);
       socket.emit("error", { message: "Failed to join room" });
@@ -113,15 +120,12 @@ export function registerConsultantHandlers(io: Server, socket: Socket) {
       });
       if (!consultant || !consultant.isAvailable) return;
 
-      console.log(`[consultant:disconnect] userId=${userId} socketId=${socket.id} - starting ${OFFLINE_GRACE_PERIOD}ms grace period`);
-
       // Check if another socket for the same user is still connected
       const sockets = await io.fetchSockets();
       const otherSocket = sockets.find(
         (s) => s.data.userId === userId && s.id !== socket.id
       );
       if (otherSocket) {
-        console.log(`[consultant:disconnect] userId=${userId} has another active socket ${otherSocket.id}, skipping offline`);
         return;
       }
 
@@ -133,7 +137,6 @@ export function registerConsultantHandlers(io: Server, socket: Socket) {
           const currentSockets = await io.fetchSockets();
           const reconnected = currentSockets.find((s) => s.data.userId === userId);
           if (reconnected) {
-            console.log(`[consultant:disconnect] userId=${userId} reconnected during grace period, skipping offline`);
             return;
           }
 
