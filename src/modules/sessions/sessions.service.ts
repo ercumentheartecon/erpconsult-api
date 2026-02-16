@@ -98,15 +98,24 @@ export class SessionsService {
 
     if (role === "CLIENT") {
       where.clientId = userId;
+      if (query.status) where.status = query.status;
     } else if (role === "CONSULTANT") {
       const consultant = await prisma.consultant.findUnique({ where: { userId } });
       if (!consultant) throw new ApiError("NOT_CONSULTANT", "Consultant profile not found", 404);
-      where.consultantId = consultant.id;
-    }
-    // ADMIN sees all
 
-    if (query.status) {
-      where.status = query.status;
+      if (query.status === "PENDING" && consultant.currentRoom) {
+        // Show pending sessions in the consultant's current room
+        const room = await prisma.room.findFirst({ where: { code: consultant.currentRoom } });
+        where.status = "PENDING";
+        if (room) where.roomId = room.id;
+      } else {
+        // Show consultant's own assigned sessions
+        where.consultantId = consultant.id;
+        if (query.status) where.status = query.status;
+      }
+    } else {
+      // ADMIN sees all
+      if (query.status) where.status = query.status;
     }
 
     const [sessions, total] = await Promise.all([

@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { SessionsService } from "./sessions.service";
 import { sendSuccess } from "../../utils/api-response";
 import { getIO } from "../../socket";
+import { prisma } from "../../config/database";
 
 const sessionsService = new SessionsService();
 
@@ -10,7 +11,7 @@ export class SessionsController {
     try {
       const session = await sessionsService.create(req.user!.userId, req.body);
 
-      // Emit to consultants in the room
+      // Emit to consultants in the room + send notifications
       try {
         const io = getIO();
         if (session.room) {
@@ -22,6 +23,24 @@ export class SessionsController {
             room: session.room,
             createdAt: session.createdAt,
           });
+
+          // Create notifications for online consultants in this room
+          const consultants = await prisma.consultant.findMany({
+            where: { currentRoom: session.room.code, isAvailable: true },
+          });
+          const clientName = `${session.client?.firstName || ""} ${session.client?.lastName || ""}`.trim() || "A client";
+          for (const c of consultants) {
+            const notif = await prisma.notification.create({
+              data: {
+                userId: c.userId,
+                type: "SESSION_REQUEST",
+                title: "New Session Request",
+                message: `${clientName} needs help in ${session.room.name}`,
+                linkUrl: `/consultant/dashboard`,
+              },
+            });
+            io.to(`user:${c.userId}`).emit("notification:new", notif);
+          }
         }
       } catch {
         // Socket not initialized, ignore
