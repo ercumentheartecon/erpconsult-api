@@ -14,6 +14,9 @@ import notificationsRoutes from "./modules/notifications/notifications.routes";
 
 const app = express();
 
+// Trust proxy (Railway runs behind a reverse proxy)
+app.set("trust proxy", 1);
+
 // Middleware
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
@@ -24,7 +27,7 @@ app.use(cookieParser());
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 500,
   standardHeaders: true,
   legacyHeaders: false,
 });
