@@ -124,4 +124,27 @@ export class ZoomController {
       next(err);
     }
   }
+
+  /**
+   * POST /api/zoom/signature
+   * Generate a Meeting SDK JWT signature for embedding Zoom in the browser.
+   * Any authenticated session participant can request a signature.
+   */
+  async getSignature(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { meetingNumber, role } = req.body;
+
+      if (!meetingNumber) {
+        throw new ApiError("VALIDATION_ERROR", "meetingNumber is required", 400);
+      }
+
+      const meetingRole = role === 1 ? 1 : 0; // Default to participant
+
+      const result = zoomService.generateSDKSignature(String(meetingNumber), meetingRole);
+
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

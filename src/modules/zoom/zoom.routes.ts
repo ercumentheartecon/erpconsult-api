@@ -7,5 +7,6 @@ const controller = new ZoomController();
 
 router.post("/meeting", authenticate, controller.createMeeting);
 router.get("/meeting/:sessionId", authenticate, controller.getMeeting);
+router.post("/signature", authenticate, controller.getSignature);
 
 export default router;

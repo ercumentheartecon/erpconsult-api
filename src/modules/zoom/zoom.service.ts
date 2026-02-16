@@ -1,4 +1,5 @@
 import { env } from "../../config/env";
+import { KJUR } from "jsrsasign";
 
 interface ZoomTokenResponse {
   access_token: string;
@@ -101,6 +102,36 @@ export class ZoomService {
       joinUrl: data.join_url,
       password: data.password,
     };
+  }
+
+  /**
+   * Generate a Meeting SDK JWT signature for embedding Zoom meetings.
+   * Uses the SDK App credentials (separate from S2S OAuth).
+   */
+  generateSDKSignature(meetingNumber: string, role: number): { signature: string; sdkKey: string } {
+    const sdkKey = env.ZOOM_SDK_KEY;
+    const sdkSecret = env.ZOOM_SDK_SECRET;
+
+    if (!sdkKey || !sdkSecret) {
+      throw new Error("ZOOM_SDK_KEY and ZOOM_SDK_SECRET must be configured");
+    }
+
+    const iat = Math.round(Date.now() / 1000) - 30;
+    const exp = iat + 60 * 60 * 2; // 2 hours
+
+    const header = JSON.stringify({ alg: "HS256", typ: "JWT" });
+    const payload = JSON.stringify({
+      appKey: sdkKey,
+      mn: meetingNumber,
+      role,
+      iat,
+      exp,
+      tokenExp: exp,
+    });
+
+    const signature = KJUR.jws.JWS.sign("HS256", header, payload, sdkSecret);
+
+    return { signature, sdkKey };
   }
 
   async deleteMeeting(meetingId: string): Promise<void> {
