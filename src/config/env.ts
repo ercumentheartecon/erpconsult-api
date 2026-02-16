@@ -13,6 +13,10 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_ACCESS_EXPIRY: z.string().default("4h"),
   JWT_REFRESH_EXPIRY: z.string().default("7d"),
+  // Zoom Server-to-Server OAuth
+  ZOOM_ACCOUNT_ID: z.string().default(""),
+  ZOOM_CLIENT_ID: z.string().default(""),
+  ZOOM_CLIENT_SECRET: z.string().default(""),
 });
 
 const parsed = envSchema.safeParse(process.env);

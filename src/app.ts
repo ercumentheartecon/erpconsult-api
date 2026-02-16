@@ -11,6 +11,7 @@ import roomsRoutes from "./modules/rooms/rooms.routes";
 import usersRoutes from "./modules/users/users.routes";
 import sessionsRoutes from "./modules/sessions/sessions.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
+import zoomRoutes from "./modules/zoom/zoom.routes";
 
 const app = express();
 
@@ -44,6 +45,7 @@ app.use("/api/rooms", roomsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/sessions", sessionsRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/zoom", zoomRoutes);
 
 // Error handler
 app.use(errorHandler);

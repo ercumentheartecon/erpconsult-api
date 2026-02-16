@@ -271,6 +271,10 @@ model Session {
   solutionSummary    String? @map("solution_summary")
   tags               String[]
 
+  zoomMeetingId       String? @map("zoom_meeting_id")
+  zoomMeetingUrl      String? @map("zoom_meeting_url")
+  zoomMeetingPassword String? @map("zoom_meeting_password")
+
   videoRecordingUrl  String? @map("video_recording_url")
   audioRecordingUrl  String? @map("audio_recording_url")
   screenRecordingUrl String? @map("screen_recording_url")
