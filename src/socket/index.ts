@@ -3,6 +3,7 @@ import { Server as HttpServer } from "http";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { getRedis } from "../config/redis";
 import { env } from "../config/env";
+import { prisma } from "../config/database";
 import { socketAuthMiddleware } from "./middleware";
 import { registerSessionHandlers } from "./handlers/session.handler";
 import { registerChatHandlers } from "./handlers/chat.handler";
@@ -41,11 +42,26 @@ export function initializeSocket(httpServer: HttpServer): Server {
   io.use(socketAuthMiddleware);
 
   // Connection handler
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     console.log(`Socket connected: ${socket.id} (user: ${socket.data.userId}, role: ${socket.data.role})`);
 
     // Join user's personal room for targeted notifications
     socket.join(`user:${socket.data.userId}`);
+
+    // Auto-restore consultant room membership on reconnect
+    if (socket.data.role === "CONSULTANT") {
+      try {
+        const consultant = await prisma.consultant.findUnique({
+          where: { userId: socket.data.userId },
+        });
+        if (consultant?.isAvailable && consultant?.currentRoom) {
+          socket.join(`room:${consultant.currentRoom}`);
+          console.log(`[auto-restore] Consultant ${socket.data.userId} re-joined room:${consultant.currentRoom}`);
+        }
+      } catch (err) {
+        console.error("[auto-restore] Failed to restore consultant room:", err);
+      }
+    }
 
     registerConsultantHandlers(io, socket);
     registerSessionHandlers(io, socket);
