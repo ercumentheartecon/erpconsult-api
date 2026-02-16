@@ -28,6 +28,22 @@ export class SessionsService {
       throw new ApiError("ROOM_NOT_FOUND", "Room not found or inactive", 404);
     }
 
+    // Prevent duplicate sessions: check if client already has PENDING or ACTIVE session in this room
+    const existingSession = await prisma.session.findFirst({
+      where: {
+        clientId,
+        roomId: data.roomId,
+        status: { in: ["PENDING", "ACTIVE"] },
+      },
+    });
+    if (existingSession) {
+      throw new ApiError(
+        "DUPLICATE_SESSION",
+        "You already have an active or pending session in this room.",
+        409
+      );
+    }
+
     if (data.consultantId) {
       const consultant = await prisma.consultant.findUnique({
         where: { id: data.consultantId },
