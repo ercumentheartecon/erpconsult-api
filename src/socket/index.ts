@@ -48,7 +48,7 @@ export function initializeSocket(httpServer: HttpServer): Server {
     // Join user's personal room for targeted notifications
     socket.join(`user:${socket.data.userId}`);
 
-    // Auto-restore consultant room membership on reconnect
+    // Auto-restore consultant room membership on reconnect and notify all clients
     if (socket.data.role === "CONSULTANT") {
       try {
         const consultant = await prisma.consultant.findUnique({
@@ -56,7 +56,14 @@ export function initializeSocket(httpServer: HttpServer): Server {
         });
         if (consultant?.isAvailable && consultant?.currentRoom) {
           socket.join(`room:${consultant.currentRoom}`);
-          console.log(`[auto-restore] Consultant ${socket.data.userId} re-joined room:${consultant.currentRoom}`);
+          // Always broadcast on reconnect so all clients refresh their consultant counts
+          io.emit("consultant:status-changed", {
+            consultantId: consultant.id,
+            userId: socket.data.userId,
+            isAvailable: true,
+            currentRoom: consultant.currentRoom,
+          });
+          console.log(`[auto-restore] Consultant ${socket.data.userId} re-joined room:${consultant.currentRoom} (broadcast sent)`);
         }
       } catch (err) {
         console.error("[auto-restore] Failed to restore consultant room:", err);
