@@ -81,7 +81,18 @@ export class SessionsService {
     // Authorization check
     if (role !== "ADMIN" && session.clientId !== userId) {
       const consultant = await prisma.consultant.findUnique({ where: { userId } });
-      if (!consultant || session.consultantId !== consultant.id) {
+      if (!consultant) {
+        throw new ApiError("FORBIDDEN", "You do not have access to this session", 403);
+      }
+      // Consultant can access: their assigned sessions OR pending sessions in their current room
+      const isAssigned = session.consultantId === consultant.id;
+      const isPendingInRoom = session.status === "PENDING" && consultant.currentRoom && session.roomId != null;
+      let isInSameRoom = false;
+      if (isPendingInRoom) {
+        const room = await prisma.room.findUnique({ where: { id: session.roomId! } });
+        isInSameRoom = room?.code === consultant.currentRoom;
+      }
+      if (!isAssigned && !isInSameRoom) {
         throw new ApiError("FORBIDDEN", "You do not have access to this session", 403);
       }
     }
