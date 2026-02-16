@@ -164,11 +164,13 @@ export class SessionsService {
     if (!session) throw new ApiError("SESSION_NOT_FOUND", "Session not found", 404);
     if (session.status !== "ACTIVE") throw new ApiError("INVALID_STATUS", "Session is not active", 400);
 
-    // Only consultant or admin can end
+    // Session participants or admin can end
     if (role !== "ADMIN") {
+      const isClient = session.clientId === userId;
       const consultant = await prisma.consultant.findUnique({ where: { userId } });
-      if (!consultant || session.consultantId !== consultant.id) {
-        throw new ApiError("FORBIDDEN", "Only the assigned consultant can end the session", 403);
+      const isConsultant = consultant && session.consultantId === consultant.id;
+      if (!isClient && !isConsultant) {
+        throw new ApiError("FORBIDDEN", "Only session participants can end the session", 403);
       }
     }
 

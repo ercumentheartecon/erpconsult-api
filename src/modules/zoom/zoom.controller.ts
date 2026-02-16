@@ -35,11 +35,13 @@ export class ZoomController {
         throw new ApiError("INVALID_STATUS", "Session must be active to create a meeting", 400);
       }
 
-      // Only consultant or admin can create meetings
+      // Session participants or admin can create meetings
       if (req.user!.role !== "ADMIN") {
+        const isClient = session.clientId === req.user!.userId;
         const consultant = await prisma.consultant.findUnique({ where: { userId: req.user!.userId } });
-        if (!consultant || session.consultantId !== consultant.id) {
-          throw new ApiError("FORBIDDEN", "Only the assigned consultant can create meetings", 403);
+        const isConsultant = consultant && session.consultantId === consultant.id;
+        if (!isClient && !isConsultant) {
+          throw new ApiError("FORBIDDEN", "Only session participants can create meetings", 403);
         }
       }
 
