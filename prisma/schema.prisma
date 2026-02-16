@@ -1,0 +1,483 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CLIENT
+  CONSULTANT
+  ADMIN
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  SUSPENDED
+}
+
+enum CompanySize {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
+enum ErpSystem {
+  CANIAS
+  SAP
+  IFS
+  DYNAMICS
+  OTHER
+}
+
+enum SessionStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TicketStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_CLIENT
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  BUG
+  HOW_TO
+  CONFIGURATION
+  FEATURE_REQUEST
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MessageType {
+  TEXT
+  FILE
+  CODE
+  LINK
+}
+
+enum InvoiceStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum NotificationType {
+  SESSION_REQUEST
+  TICKET_UPDATE
+  INVOICE
+  SYSTEM
+}
+
+enum Difficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole
+
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  companyName String?  @map("company_name")
+  phone       String?
+  avatarUrl   String?  @map("avatar_url")
+
+  isActive   Boolean  @default(true) @map("is_active")
+  isVerified Boolean  @default(false) @map("is_verified")
+  isOnline   Boolean  @default(false) @map("is_online")
+  lastSeen   DateTime? @map("last_seen")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  consultant    Consultant?
+  companyUsers  CompanyUser[]
+  sessions      Session[]       @relation("ClientSessions")
+  tickets       Ticket[]
+  ticketMessages TicketMessage[]
+  chatMessages  ChatMessage[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isOnline])
+  @@map("users")
+}
+
+model Consultant {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  expertiseAreas    String[] @map("expertise_areas")
+  bio               String?
+  yearsOfExperience Int?     @map("years_of_experience")
+  certifications    String[]
+
+  isAvailable           Boolean @default(true) @map("is_available")
+  currentRoom           String? @map("current_room")
+  maxConcurrentSessions Int     @default(3) @map("max_concurrent_sessions")
+
+  totalSessions Int     @default(0) @map("total_sessions")
+  averageRating Float   @default(0) @map("average_rating")
+  totalHours    Float   @default(0) @map("total_hours")
+
+  workingHours Json?    @map("working_hours")
+  timezone     String   @default("UTC")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessions Session[]
+  tickets  Ticket[]  @relation("AssignedTickets")
+
+  @@index([userId])
+  @@index([isAvailable])
+  @@index([currentRoom])
+  @@map("consultants")
+}
+
+model Company {
+  id   String @id @default(uuid())
+  name String
+
+  subscriptionPlan      SubscriptionPlan?   @map("subscription_plan")
+  subscriptionStatus    SubscriptionStatus  @default(ACTIVE) @map("subscription_status")
+  subscriptionStartDate DateTime?           @map("subscription_start_date")
+  subscriptionEndDate   DateTime?           @map("subscription_end_date")
+
+  monthlyHoursLimit  Int?   @map("monthly_hours_limit")
+  hoursUsedThisMonth Float  @default(0) @map("hours_used_this_month")
+  overageRate        Float  @default(89.00) @map("overage_rate")
+
+  stripeCustomerId String? @map("stripe_customer_id")
+  billingEmail     String? @map("billing_email")
+
+  industry    String?
+  companySize CompanySize? @map("company_size")
+  erpSystem   ErpSystem    @default(CANIAS) @map("erp_system")
+  erpVersion  String?      @map("erp_version")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  companyUsers CompanyUser[]
+  sessions     Session[]
+  tickets      Ticket[]
+  invoices     Invoice[]
+
+  @@index([subscriptionStatus])
+  @@map("companies")
+}
+
+model CompanyUser {
+  id        String @id @default(uuid())
+  companyId String @map("company_id")
+  userId    String @map("user_id")
+  role      String @default("MEMBER")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+  @@map("company_users")
+}
+
+model Room {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  icon        String?
+
+  maxCapacity Int     @default(5) @map("max_capacity")
+  isActive    Boolean @default(true) @map("is_active")
+
+  totalSessions   Int @default(0) @map("total_sessions")
+  averageWaitTime Int @default(0) @map("average_wait_time")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessions      Session[]
+  tickets       Ticket[]
+  knowledgeBase KnowledgeBase[]
+
+  @@map("rooms")
+}
+
+model Session {
+  id            String @id @default(uuid())
+  sessionNumber String @unique @map("session_number")
+
+  clientId     String  @map("client_id")
+  consultantId String? @map("consultant_id")
+  companyId    String? @map("company_id")
+  roomId       String? @map("room_id")
+
+  client     User        @relation("ClientSessions", fields: [clientId], references: [id])
+  consultant Consultant? @relation(fields: [consultantId], references: [id])
+  company    Company?    @relation(fields: [companyId], references: [id])
+  room       Room?       @relation(fields: [roomId], references: [id])
+
+  status SessionStatus @default(PENDING)
+
+  scheduledAt     DateTime? @map("scheduled_at")
+  startedAt       DateTime? @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  durationMinutes Int?      @map("duration_minutes")
+
+  videoEnabled         Boolean @default(true) @map("video_enabled")
+  audioEnabled         Boolean @default(true) @map("audio_enabled")
+  screenSharingEnabled Boolean @default(false) @map("screen_sharing_enabled")
+
+  problemDescription String? @map("problem_description")
+  solutionSummary    String? @map("solution_summary")
+  tags               String[]
+
+  videoRecordingUrl  String? @map("video_recording_url")
+  audioRecordingUrl  String? @map("audio_recording_url")
+  screenRecordingUrl String? @map("screen_recording_url")
+  chatTranscript     Json?   @map("chat_transcript")
+  attachments        Json?
+
+  clientRating    Int?    @map("client_rating")
+  clientFeedback  String? @map("client_feedback")
+  consultantNotes String? @map("consultant_notes")
+
+  billableMinutes      Int?    @map("billable_minutes")
+  cost                 Float?
+  subscriptionDeducted Boolean @default(false) @map("subscription_deducted")
+  invoiceId            String? @map("invoice_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  chatMessages  ChatMessage[]
+  knowledgeBase KnowledgeBase[]
+
+  @@index([clientId])
+  @@index([consultantId])
+  @@index([companyId])
+  @@index([roomId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("sessions")
+}
+
+model Ticket {
+  id           String @id @default(uuid())
+  ticketNumber String @unique @map("ticket_number")
+
+  clientId             String  @map("client_id")
+  companyId            String? @map("company_id")
+  assignedConsultantId String? @map("assigned_consultant_id")
+  roomId               String? @map("room_id")
+
+  client             User        @relation(fields: [clientId], references: [id])
+  company            Company?    @relation(fields: [companyId], references: [id])
+  assignedConsultant Consultant? @relation("AssignedTickets", fields: [assignedConsultantId], references: [id])
+  room               Room?       @relation(fields: [roomId], references: [id])
+
+  title       String
+  description String
+  category    TicketCategory?
+  priority    TicketPriority @default(MEDIUM)
+  status      TicketStatus   @default(OPEN)
+
+  assignedAt      DateTime? @map("assigned_at")
+  firstResponseAt DateTime? @map("first_response_at")
+  resolvedAt      DateTime? @map("resolved_at")
+  closedAt        DateTime? @map("closed_at")
+
+  slaResponseMinutes  Int?     @map("sla_response_minutes")
+  slaResolutionHours  Int?     @map("sla_resolution_hours")
+  slaBreached         Boolean  @default(false) @map("sla_breached")
+
+  relatedSessionIds String[] @map("related_session_ids")
+  parentTicketId    String?  @map("parent_ticket_id")
+  parentTicket      Ticket?  @relation("TicketChildren", fields: [parentTicketId], references: [id])
+  childTickets      Ticket[] @relation("TicketChildren")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  messages      TicketMessage[]
+  knowledgeBase KnowledgeBase[]
+
+  @@index([clientId])
+  @@index([companyId])
+  @@index([assignedConsultantId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id       String @id @default(uuid())
+  ticketId String @map("ticket_id")
+  userId   String @map("user_id")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  isInternal  Boolean @default(false) @map("is_internal")
+  message     String
+  attachments Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_messages")
+}
+
+model ChatMessage {
+  id        String @id @default(uuid())
+  sessionId String @map("session_id")
+  userId    String @map("user_id")
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  userRole    String      @map("user_role")
+  message     String
+  messageType MessageType @default(TEXT) @map("message_type")
+
+  sentAt DateTime  @default(now()) @map("sent_at")
+  readAt DateTime? @map("read_at")
+
+  @@index([sessionId])
+  @@index([sentAt])
+  @@map("chat_messages")
+}
+
+model KnowledgeBase {
+  id String @id @default(uuid())
+
+  sessionId String? @map("session_id")
+  ticketId  String? @map("ticket_id")
+
+  session Session? @relation(fields: [sessionId], references: [id])
+  ticket  Ticket?  @relation(fields: [ticketId], references: [id])
+
+  title    String
+  problem  String
+  solution String
+  tags     String[]
+
+  roomId   String? @map("room_id")
+  room     Room?   @relation(fields: [roomId], references: [id])
+
+  category   String?
+  difficulty Difficulty?
+
+  isPublic     Boolean @default(false) @map("is_public")
+  isApproved   Boolean @default(false) @map("is_approved")
+  views        Int     @default(0)
+  helpfulCount Int     @default(0) @map("helpful_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([roomId])
+  @@map("knowledge_base")
+}
+
+model Invoice {
+  id            String @id @default(uuid())
+  invoiceNumber String @unique @map("invoice_number")
+
+  companyId String  @map("company_id")
+  company   Company @relation(fields: [companyId], references: [id])
+
+  periodStart DateTime @map("period_start")
+  periodEnd   DateTime @map("period_end")
+
+  subscriptionAmount Float @default(0) @map("subscription_amount")
+  overageHours       Float @default(0) @map("overage_hours")
+  overageAmount      Float @default(0) @map("overage_amount")
+  additionalServices Float @default(0) @map("additional_services")
+
+  subtotal    Float
+  taxRate     Float @default(0) @map("tax_rate")
+  taxAmount   Float @default(0) @map("tax_amount")
+  totalAmount Float @map("total_amount")
+
+  status          InvoiceStatus @default(PENDING)
+  paymentMethod   String?       @map("payment_method")
+  paidAt          DateTime?     @map("paid_at")
+  stripeInvoiceId String?       @map("stripe_invoice_id")
+
+  lineItems Json? @map("line_items")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId])
+  @@index([status])
+  @@index([periodEnd])
+  @@map("invoices")
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  title   String
+  message String
+  linkUrl String?          @map("link_url")
+
+  isRead Boolean   @default(false) @map("is_read")
+  readAt DateTime? @map("read_at")
+
+  sentViaEmail Boolean @default(false) @map("sent_via_email")
+  sentViaPush  Boolean @default(false) @map("sent_via_push")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
