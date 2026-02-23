@@ -13,6 +13,8 @@ import sessionsRoutes from "./modules/sessions/sessions.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
 import zoomRoutes from "./modules/zoom/zoom.routes";
 import activitiesRoutes from "./modules/activities/activities.routes";
+import settingsRoutes from "./modules/settings/settings.routes";
+import localInvoicesRoutes from "./modules/local-invoices/local-invoices.routes";
 
 const app = express();
 
@@ -48,6 +50,8 @@ app.use("/api/sessions", sessionsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/zoom", zoomRoutes);
 app.use("/api/activities", activitiesRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/local-invoices", localInvoicesRoutes);
 
 // Error handler
 app.use(errorHandler);

@@ -496,6 +496,54 @@ model Activity {
   @@map("activities")
 }
 
+// Generic key-value settings (replaces ALL localStorage data)
+model AppSetting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("app_settings")
+}
+
+// Local invoice records (previously in localStorage)
+model LocalInvoice {
+  id                String @id @default(uuid())
+  odooInvoiceId     Int    @map("odoo_invoice_id")
+  odooCompanyId     Int    @map("odoo_company_id")
+  odooCompanyName   String @map("odoo_company_name")
+  parentCompanyId   Int    @map("parent_company_id")
+  parentCompanyName String @map("parent_company_name")
+  activityIds          String[] @map("activity_ids")
+  activityDescriptions String[] @map("activity_descriptions")
+  lines                Json     @default("[]")
+  status    String @default("DRAFT")
+  createdAt DateTime @default(now()) @map("created_at")
+  customerAddress String? @map("customer_address")
+  customerCity    String? @map("customer_city")
+  customerZip     String? @map("customer_zip")
+  customerCountry String? @map("customer_country")
+  customerVat     String? @map("customer_vat")
+  customerEmail   String? @map("customer_email")
+  customerPhone   String? @map("customer_phone")
+  currency String @default("EUR")
+  subtotal Float  @default(0)
+  parentAddress  String? @map("parent_address")
+  parentCity     String? @map("parent_city")
+  parentZip      String? @map("parent_zip")
+  parentCountry  String? @map("parent_country")
+  parentVat      String? @map("parent_vat")
+  parentEmail    String? @map("parent_email")
+  parentPhone    String? @map("parent_phone")
+  parentBankName String? @map("parent_bank_name")
+  parentBankIBAN String? @map("parent_bank_iban")
+  parentBankBIC  String? @map("parent_bank_bic")
+  @@index([odooInvoiceId])
+  @@index([odooCompanyId])
+  @@index([status])
+  @@map("local_invoices")
+}
+
 model Notification {
   id     String @id @default(uuid())
   userId String @map("user_id")
