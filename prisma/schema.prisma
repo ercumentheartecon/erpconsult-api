@@ -128,6 +128,7 @@ model User {
   ticketMessages TicketMessage[]
   chatMessages  ChatMessage[]
   notifications Notification[]
+  activities    Activity[]
 
   @@index([email])
   @@index([role])
@@ -460,6 +461,39 @@ model Invoice {
   @@index([status])
   @@index([periodEnd])
   @@map("invoices")
+}
+
+model Activity {
+  id String @id @default(uuid())
+
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  odooCompanyId   Int     @map("odoo_company_id")
+  odooCompanyName String  @map("odoo_company_name")
+  consultantId    Int?    @map("consultant_id_odoo")
+  consultantName  String? @map("consultant_name")
+  requestedBy     String? @map("requested_by")
+  product         String?
+
+  description     String
+  startTime       DateTime @map("start_time")
+  endTime         DateTime @map("end_time")
+  durationMinutes Int      @map("duration_minutes")
+
+  billable       Boolean @default(true)
+  invoiced       Boolean @default(false)
+  odooInvoiceId  Int?    @map("odoo_invoice_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([odooCompanyId])
+  @@index([startTime])
+  @@index([billable])
+  @@index([invoiced])
+  @@map("activities")
 }
 
 model Notification {

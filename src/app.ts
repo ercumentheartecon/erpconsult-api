@@ -12,6 +12,7 @@ import usersRoutes from "./modules/users/users.routes";
 import sessionsRoutes from "./modules/sessions/sessions.routes";
 import notificationsRoutes from "./modules/notifications/notifications.routes";
 import zoomRoutes from "./modules/zoom/zoom.routes";
+import activitiesRoutes from "./modules/activities/activities.routes";
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use("/api/users", usersRoutes);
 app.use("/api/sessions", sessionsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/zoom", zoomRoutes);
+app.use("/api/activities", activitiesRoutes);
 
 // Error handler
 app.use(errorHandler);
