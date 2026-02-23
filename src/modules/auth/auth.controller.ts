@@ -49,4 +49,23 @@ export class AuthController {
       next(err);
     }
   }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, newPassword } = req.body;
+      const result = await authService.resetPassword(email, newPassword);
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async listUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.listUsers();
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }

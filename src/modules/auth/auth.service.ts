@@ -138,6 +138,37 @@ export class AuthService {
     };
   }
 
+  async resetPassword(email: string, newPassword: string) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new ApiError("USER_NOT_FOUND", "User not found", 404);
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash },
+    });
+
+    return { message: "Password reset successfully" };
+  }
+
+  async listUsers() {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return users;
+  }
+
   private async storeRefreshToken(userId: string, token: string) {
     const redis = getRedis();
     await redis.set(`refresh:${userId}`, token, "EX", REFRESH_TOKEN_TTL);

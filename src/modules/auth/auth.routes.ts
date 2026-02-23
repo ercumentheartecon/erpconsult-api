@@ -2,6 +2,7 @@ import { Router } from "express";
 import { AuthController } from "./auth.controller";
 import { validate } from "../../middleware/validate.middleware";
 import { authenticate } from "../../middleware/auth.middleware";
+import { authorize } from "../../middleware/role.middleware";
 import { registerSchema, loginSchema, refreshSchema } from "./auth.schema";
 
 const router = Router();
@@ -12,5 +13,9 @@ router.post("/login", validate(loginSchema), controller.login);
 router.post("/refresh", validate(refreshSchema), controller.refresh);
 router.post("/logout", authenticate, controller.logout);
 router.get("/me", authenticate, controller.me);
+
+// Admin endpoints
+router.post("/reset-password", authenticate, authorize("ADMIN"), controller.resetPassword);
+router.get("/users", authenticate, authorize("ADMIN"), controller.listUsers);
 
 export default router;
