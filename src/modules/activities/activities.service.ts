@@ -5,6 +5,7 @@ import type { CreateActivityInput, UpdateActivityInput, BulkCreateInput } from "
 interface ListParams {
   userId: string;
   userRole: string;
+  userName?: string;
   odooCompanyId?: number;
   product?: string;
   startDate?: string;
@@ -20,6 +21,7 @@ export class ActivitiesService {
     const {
       userId,
       userRole,
+      userName,
       odooCompanyId,
       product,
       startDate,
@@ -32,8 +34,15 @@ export class ActivitiesService {
 
     const where: Record<string, unknown> = {};
 
-    // Non-admin users only see their own activities
-    if (userRole !== "ADMIN") {
+    // ADMIN sees all, CONSULTANT sees own + activities where their name is consultantName
+    if (userRole === "CONSULTANT") {
+      // Show activities the consultant created OR where they are the named consultant
+      const orConditions: Record<string, unknown>[] = [{ userId }];
+      if (userName) {
+        orConditions.push({ consultantName: { contains: userName, mode: "insensitive" } });
+      }
+      where.OR = orConditions;
+    } else if (userRole !== "ADMIN") {
       where.userId = userId;
     }
 
@@ -122,10 +131,13 @@ export class ActivitiesService {
     return this.formatActivity(activity);
   }
 
-  async update(activityId: string, userId: string, userRole: string, input: UpdateActivityInput) {
+  async update(activityId: string, userId: string, userRole: string, input: UpdateActivityInput, userName?: string) {
     const existing = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!existing) throw new ApiError("NOT_FOUND", "Activity not found", 404);
-    if (userRole !== "ADMIN" && existing.userId !== userId) {
+    // ADMIN can update any; CONSULTANT can update own + those where consultantName matches
+    const isOwner = existing.userId === userId;
+    const isNamedConsultant = userRole === "CONSULTANT" && userName && existing.consultantName?.toLowerCase().includes(userName.toLowerCase());
+    if (userRole !== "ADMIN" && !isOwner && !isNamedConsultant) {
       throw new ApiError("FORBIDDEN", "Not allowed to update this activity", 403);
     }
 
@@ -157,10 +169,12 @@ export class ActivitiesService {
     return this.formatActivity(updated);
   }
 
-  async delete(activityId: string, userId: string, userRole: string) {
+  async delete(activityId: string, userId: string, userRole: string, userName?: string) {
     const existing = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!existing) throw new ApiError("NOT_FOUND", "Activity not found", 404);
-    if (userRole !== "ADMIN" && existing.userId !== userId) {
+    const isOwner = existing.userId === userId;
+    const isNamedConsultant = userRole === "CONSULTANT" && userName && existing.consultantName?.toLowerCase().includes(userName.toLowerCase());
+    if (userRole !== "ADMIN" && !isOwner && !isNamedConsultant) {
       throw new ApiError("FORBIDDEN", "Not allowed to delete this activity", 403);
     }
 
