@@ -34,12 +34,16 @@ export class ActivitiesService {
 
     const where: Record<string, unknown> = {};
 
-    // ADMIN sees all, CONSULTANT sees own + activities where their name is consultantName
+    // ADMIN sees all, CONSULTANT sees own + activities where their name matches consultantName
     if (userRole === "CONSULTANT") {
-      // Show activities the consultant created OR where they are the named consultant
       const orConditions: Record<string, unknown>[] = [{ userId }];
       if (userName) {
+        // Match by full name or by first name (handles name changes / different last names)
+        const nameParts = userName.split(" ").filter(Boolean);
         orConditions.push({ consultantName: { contains: userName, mode: "insensitive" } });
+        if (nameParts.length > 0) {
+          orConditions.push({ consultantName: { startsWith: nameParts[0], mode: "insensitive" } });
+        }
       }
       where.OR = orConditions;
     } else if (userRole !== "ADMIN") {
@@ -136,7 +140,7 @@ export class ActivitiesService {
     if (!existing) throw new ApiError("NOT_FOUND", "Activity not found", 404);
     // ADMIN can update any; CONSULTANT can update own + those where consultantName matches
     const isOwner = existing.userId === userId;
-    const isNamedConsultant = userRole === "CONSULTANT" && userName && existing.consultantName?.toLowerCase().includes(userName.toLowerCase());
+    const isNamedConsultant = userRole === "CONSULTANT" && userName && this.nameMatches(userName, existing.consultantName);
     if (userRole !== "ADMIN" && !isOwner && !isNamedConsultant) {
       throw new ApiError("FORBIDDEN", "Not allowed to update this activity", 403);
     }
@@ -173,7 +177,7 @@ export class ActivitiesService {
     const existing = await prisma.activity.findUnique({ where: { id: activityId } });
     if (!existing) throw new ApiError("NOT_FOUND", "Activity not found", 404);
     const isOwner = existing.userId === userId;
-    const isNamedConsultant = userRole === "CONSULTANT" && userName && existing.consultantName?.toLowerCase().includes(userName.toLowerCase());
+    const isNamedConsultant = userRole === "CONSULTANT" && userName && this.nameMatches(userName, existing.consultantName);
     if (userRole !== "ADMIN" && !isOwner && !isNamedConsultant) {
       throw new ApiError("FORBIDDEN", "Not allowed to delete this activity", 403);
     }
@@ -211,6 +215,17 @@ export class ActivitiesService {
       results.push(this.formatActivity(activity));
     }
     return { imported: results.length, activities: results };
+  }
+
+  // Check if userName matches consultantName (full name or first name)
+  private nameMatches(userName: string, consultantName: string | null): boolean {
+    if (!consultantName) return false;
+    const cn = consultantName.toLowerCase();
+    const un = userName.toLowerCase();
+    if (cn.includes(un) || un.includes(cn)) return true;
+    // Match by first name
+    const firstName = un.split(" ")[0];
+    return firstName.length >= 2 && cn.startsWith(firstName);
   }
 
   private formatActivity(a: {
