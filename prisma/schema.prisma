@@ -145,6 +145,9 @@ model Consultant {
   bio               String?
   yearsOfExperience Int?     @map("years_of_experience")
   certifications    String[]
+  specialization    String?
+  hourlyRate        Float?   @map("hourly_rate")
+  title             String?
 
   isAvailable           Boolean @default(true) @map("is_available")
   currentRoom           String? @map("current_room")

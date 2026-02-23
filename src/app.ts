@@ -15,6 +15,7 @@ import zoomRoutes from "./modules/zoom/zoom.routes";
 import activitiesRoutes from "./modules/activities/activities.routes";
 import settingsRoutes from "./modules/settings/settings.routes";
 import localInvoicesRoutes from "./modules/local-invoices/local-invoices.routes";
+import consultantsRoutes from "./modules/consultants/consultants.routes";
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use("/api/zoom", zoomRoutes);
 app.use("/api/activities", activitiesRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/local-invoices", localInvoicesRoutes);
+app.use("/api/consultants", consultantsRoutes);
 
 // Error handler
 app.use(errorHandler);
