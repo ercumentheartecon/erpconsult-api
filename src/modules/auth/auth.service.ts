@@ -169,6 +169,19 @@ export class AuthService {
     return users;
   }
 
+  async updateUserRole(email: string, role: "CLIENT" | "CONSULTANT" | "ADMIN") {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      throw new ApiError("USER_NOT_FOUND", "User not found", 404);
+    }
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { role },
+      select: { id: true, email: true, role: true, firstName: true, lastName: true },
+    });
+    return updated;
+  }
+
   private async storeRefreshToken(userId: string, token: string) {
     const redis = getRedis();
     await redis.set(`refresh:${userId}`, token, "EX", REFRESH_TOKEN_TTL);

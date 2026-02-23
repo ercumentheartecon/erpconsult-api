@@ -68,4 +68,14 @@ export class AuthController {
       next(err);
     }
   }
+
+  async updateUserRole(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, role } = req.body;
+      const result = await authService.updateUserRole(email, role);
+      sendSuccess(res, result);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
