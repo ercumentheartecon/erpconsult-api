@@ -68,6 +68,11 @@ export class AuthService {
       data: { isOnline: true, lastSeen: new Date() },
     });
 
+    // Auto-create Consultant profile if CONSULTANT role but no profile yet
+    if (user.role === "CONSULTANT") {
+      await this.ensureConsultantProfile(user.id);
+    }
+
     const tokens = generateTokenPair(user.id, user.role);
     await this.storeRefreshToken(user.id, tokens.refreshToken);
 
@@ -179,7 +184,30 @@ export class AuthService {
       data: { role },
       select: { id: true, email: true, role: true, firstName: true, lastName: true },
     });
+
+    // Auto-create Consultant profile when role is set to CONSULTANT
+    if (role === "CONSULTANT") {
+      await this.ensureConsultantProfile(user.id);
+    }
+
     return updated;
+  }
+
+  // Ensure a Consultant profile exists for a user — create one if missing
+  async ensureConsultantProfile(userId: string) {
+    const existing = await prisma.consultant.findUnique({ where: { userId } });
+    if (existing) return existing;
+
+    return prisma.consultant.create({
+      data: {
+        userId,
+        expertiseAreas: [],
+        certifications: [],
+        isAvailable: true,
+        maxConcurrentSessions: 3,
+        timezone: "UTC",
+      },
+    });
   }
 
   private async storeRefreshToken(userId: string, token: string) {
