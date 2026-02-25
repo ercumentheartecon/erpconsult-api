@@ -1,12 +1,11 @@
 import { z } from "zod";
 
 export const createConsultantSchema = z.object({
-  // User fields (creates a new user with CONSULTANT role)
+  // User fields (links to existing user by email)
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().nullable().optional(),
-  password: z.string().min(6).optional(), // optional — defaults to random if not given
 
   // Consultant profile fields
   title: z.string().nullable().optional(),

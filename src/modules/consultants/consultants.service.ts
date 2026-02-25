@@ -1,8 +1,6 @@
 import { prisma } from "../../config/database";
 import { ApiError } from "../../utils/api-error";
-import { hashPassword } from "../../utils/password";
 import type { CreateConsultantInput, UpdateConsultantInput } from "./consultants.schema";
-import crypto from "crypto";
 
 const USER_SELECT = {
   id: true,
@@ -35,70 +33,34 @@ export class ConsultantsService {
   }
 
   async create(input: CreateConsultantInput) {
-    // Check if email already exists as a user
+    // Find existing user by email — consultant must be linked to an existing user
     const existingUser = await prisma.user.findUnique({ where: { email: input.email } });
-
-    if (existingUser) {
-      // Check if this user already has a consultant profile
-      const existingConsultant = await prisma.consultant.findUnique({ where: { userId: existingUser.id } });
-      if (existingConsultant) {
-        throw new ApiError("CONSULTANT_EXISTS", "This user already has a consultant profile", 409);
-      }
-
-      // Link consultant profile to the existing user
-      const result = await prisma.$transaction(async (tx) => {
-        // Update user role to CONSULTANT if not already, and update name/phone if provided
-        await tx.user.update({
-          where: { id: existingUser.id },
-          data: {
-            role: "CONSULTANT",
-            ...(input.firstName && { firstName: input.firstName }),
-            ...(input.lastName && { lastName: input.lastName }),
-            ...(input.phone && { phone: input.phone }),
-          },
-        });
-
-        const consultant = await tx.consultant.create({
-          data: {
-            userId: existingUser.id,
-            title: input.title || null,
-            expertiseAreas: input.expertiseAreas || [],
-            specialization: input.specialization || null,
-            yearsOfExperience: input.yearsOfExperience ?? null,
-            hourlyRate: input.hourlyRate ?? null,
-            bio: input.bio || null,
-            certifications: input.certifications || [],
-            isAvailable: input.isAvailable ?? true,
-            timezone: input.timezone || "UTC",
-          },
-          include: { user: { select: USER_SELECT } },
-        });
-
-        return consultant;
-      });
-
-      return this.format(result);
+    if (!existingUser) {
+      throw new ApiError("USER_NOT_FOUND", "No user found with this email. Create the user first in the Users section.", 404);
     }
 
-    // No existing user — create new user + consultant
-    const rawPassword = input.password || crypto.randomBytes(12).toString("hex");
-    const passwordHash = await hashPassword(rawPassword);
+    // Check if this user already has a consultant profile
+    const existingConsultant = await prisma.consultant.findUnique({ where: { userId: existingUser.id } });
+    if (existingConsultant) {
+      throw new ApiError("CONSULTANT_EXISTS", "This user already has a consultant profile", 409);
+    }
 
+    // Link consultant profile to the existing user
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
+      // Update user role to CONSULTANT and sync name/phone if provided
+      await tx.user.update({
+        where: { id: existingUser.id },
         data: {
-          email: input.email,
-          passwordHash,
           role: "CONSULTANT",
-          firstName: input.firstName,
-          lastName: input.lastName,
-          phone: input.phone || null,
+          ...(input.firstName && { firstName: input.firstName }),
+          ...(input.lastName && { lastName: input.lastName }),
+          ...(input.phone && { phone: input.phone }),
         },
       });
 
       const consultant = await tx.consultant.create({
         data: {
-          userId: user.id,
+          userId: existingUser.id,
           title: input.title || null,
           expertiseAreas: input.expertiseAreas || [],
           specialization: input.specialization || null,
