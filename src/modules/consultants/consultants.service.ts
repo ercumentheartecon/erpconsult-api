@@ -35,17 +35,55 @@ export class ConsultantsService {
   }
 
   async create(input: CreateConsultantInput) {
-    // Check if email already exists
-    const existing = await prisma.user.findUnique({ where: { email: input.email } });
-    if (existing) {
-      throw new ApiError("EMAIL_EXISTS", "A user with this email already exists", 409);
+    // Check if email already exists as a user
+    const existingUser = await prisma.user.findUnique({ where: { email: input.email } });
+
+    if (existingUser) {
+      // Check if this user already has a consultant profile
+      const existingConsultant = await prisma.consultant.findUnique({ where: { userId: existingUser.id } });
+      if (existingConsultant) {
+        throw new ApiError("CONSULTANT_EXISTS", "This user already has a consultant profile", 409);
+      }
+
+      // Link consultant profile to the existing user
+      const result = await prisma.$transaction(async (tx) => {
+        // Update user role to CONSULTANT if not already, and update name/phone if provided
+        await tx.user.update({
+          where: { id: existingUser.id },
+          data: {
+            role: "CONSULTANT",
+            ...(input.firstName && { firstName: input.firstName }),
+            ...(input.lastName && { lastName: input.lastName }),
+            ...(input.phone && { phone: input.phone }),
+          },
+        });
+
+        const consultant = await tx.consultant.create({
+          data: {
+            userId: existingUser.id,
+            title: input.title || null,
+            expertiseAreas: input.expertiseAreas || [],
+            specialization: input.specialization || null,
+            yearsOfExperience: input.yearsOfExperience ?? null,
+            hourlyRate: input.hourlyRate ?? null,
+            bio: input.bio || null,
+            certifications: input.certifications || [],
+            isAvailable: input.isAvailable ?? true,
+            timezone: input.timezone || "UTC",
+          },
+          include: { user: { select: USER_SELECT } },
+        });
+
+        return consultant;
+      });
+
+      return this.format(result);
     }
 
-    // Generate a random password if not provided
+    // No existing user — create new user + consultant
     const rawPassword = input.password || crypto.randomBytes(12).toString("hex");
     const passwordHash = await hashPassword(rawPassword);
 
-    // Create user + consultant in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: {
