@@ -58,7 +58,12 @@ export class ActivitiesService {
     if (startDate || endDate) {
       where.startTime = {};
       if (startDate) (where.startTime as Record<string, unknown>).gte = new Date(startDate);
-      if (endDate) (where.startTime as Record<string, unknown>).lte = new Date(endDate);
+      if (endDate) {
+        // End of day: set to 23:59:59.999 so activities during the day are included
+        const end = new Date(endDate);
+        end.setUTCHours(23, 59, 59, 999);
+        (where.startTime as Record<string, unknown>).lte = end;
+      }
     }
 
     const [activities, total] = await Promise.all([
