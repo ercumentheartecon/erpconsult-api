@@ -14,6 +14,8 @@ export const createActivitySchema = z.object({
 });
 
 export const updateActivitySchema = z.object({
+  odooCompanyId: z.number().optional(),
+  odooCompanyName: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
   requestedBy: z.string().nullable().optional(),
   product: z.string().nullable().optional(),

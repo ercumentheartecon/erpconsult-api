@@ -151,6 +151,8 @@ export class ActivitiesService {
     }
 
     const data: Record<string, unknown> = {};
+    if (input.odooCompanyId !== undefined) data.odooCompanyId = input.odooCompanyId;
+    if (input.odooCompanyName !== undefined) data.odooCompanyName = input.odooCompanyName;
     if (input.description !== undefined) data.description = input.description;
     if (input.requestedBy !== undefined) data.requestedBy = input.requestedBy;
     if (input.product !== undefined) data.product = input.product;
