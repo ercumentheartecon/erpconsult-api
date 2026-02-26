@@ -16,7 +16,7 @@ router.get("/me", authenticate, controller.me);
 
 // Admin endpoints
 router.post("/reset-password", authenticate, authorize("ADMIN"), controller.resetPassword);
-router.patch("/update-role", authenticate, controller.updateUserRole);
+router.patch("/update-role", authenticate, authorize("ADMIN"), controller.updateUserRole);
 router.get("/users", authenticate, authorize("ADMIN"), controller.listUsers);
 
 export default router;

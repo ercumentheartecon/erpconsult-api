@@ -47,11 +47,11 @@ export class ConsultantsService {
 
     // Link consultant profile to the existing user
     const result = await prisma.$transaction(async (tx) => {
-      // Update user role to CONSULTANT and sync name/phone if provided
+      // Update user role to CONSULTANT (keep ADMIN if already admin) and sync name/phone
       await tx.user.update({
         where: { id: existingUser.id },
         data: {
-          role: "CONSULTANT",
+          ...(existingUser.role !== "ADMIN" && { role: "CONSULTANT" }),
           ...(input.firstName && { firstName: input.firstName }),
           ...(input.lastName && { lastName: input.lastName }),
           ...(input.phone && { phone: input.phone }),
